@@ -1,0 +1,33 @@
+# ── Backend ──────────────────────────────────────────────
+backend/.env
+backend/firebase-service-account.json
+backend/node_modules/
+backend/database.sqlite
+backend/out.json
+backend/scratch_out.json
+backend/scratch.js
+backend/scratch2.js
+backend/scratch/
+backend/verification_codes.txt
+backend/test-supabase.js
+backend/*.js.map
+
+# Large uploaded player script files
+backend/*-player-script.js
+
+# ── Android App ───────────────────────────────────────────
+android-app/.gradle/
+android-app/local.properties
+android-app/build/
+android-app/app/build/
+android-app/.idea/
+android-app/**/*.iml
+android-app/captures/
+android-app/.navigation/
+android-app/google-services.json
+android-app/app/google-services.json
+
+# ── General ───────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.log
