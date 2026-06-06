@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
 const admin = require('firebase-admin');
+const ws = require('ws');
 
 // 1. Initialize Supabase
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -11,7 +12,9 @@ if (!supabaseUrl || !supabaseKey) {
     process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createClient(supabaseUrl, supabaseKey, {
+    realtime: { transport: ws }
+});
 console.log('✅ Connected to Supabase');
 
 // 2. Initialize Firebase Admin
