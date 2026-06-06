@@ -15,14 +15,24 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 console.log('✅ Connected to Supabase');
 
 // 2. Initialize Firebase Admin
+// Supports both local file (dev) and env variable (production/cloud hosting)
 try {
-    const serviceAccount = require('../firebase-service-account.json');
+    let serviceAccount;
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+        // Cloud hosting: pass the JSON as an environment variable
+        serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+        console.log('✅ Firebase Admin: loaded from FIREBASE_SERVICE_ACCOUNT env var');
+    } else {
+        // Local dev: load from file
+        serviceAccount = require('../firebase-service-account.json');
+        console.log('✅ Firebase Admin: loaded from firebase-service-account.json');
+    }
     admin.initializeApp({
         credential: admin.credential.cert(serviceAccount)
     });
     console.log('✅ Firebase Admin initialized');
 } catch (error) {
-    console.error('❌ Failed to initialize Firebase Admin. Ensure firebase-service-account.json is present.', error.message);
+    console.error('❌ Failed to initialize Firebase Admin.', error.message);
 }
 
 module.exports = {
