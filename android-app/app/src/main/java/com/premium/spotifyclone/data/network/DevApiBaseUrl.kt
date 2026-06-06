@@ -15,7 +15,7 @@ internal object DevApiBaseUrl {
      * Optional: set to your PC's LAN URL when testing on a real phone without `adb reverse`.
      * Must include trailing slash to match Retrofit's `baseUrl` rules. Leave null to use emulator / adb-reverse defaults.
      */
-    val OVERRIDE_DEV_API_BASE_URL: String? = "http://192.168.1.5:3000/"
+    val OVERRIDE_DEV_API_BASE_URL: String? = "https://api.gauravxd.dev/"
 
     fun resolve(): String {
         OVERRIDE_DEV_API_BASE_URL?.let { return it }
