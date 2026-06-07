@@ -23,7 +23,9 @@ import androidx.compose.ui.platform.LocalContext
 fun ListenTogetherSheet(
     onDismiss: () -> Unit,
     onStartSession: (String) -> Unit,
-    onJoinSession: (String) -> Unit
+    onJoinSession: (String) -> Unit,
+    activeRoomCode: String?,
+    onEndSession: () -> Unit
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -31,7 +33,6 @@ fun ListenTogetherSheet(
         dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
         var roomCode by remember { mutableStateOf("") }
-        var generatedSessionCode by remember { mutableStateOf<String?>(null) }
         val context = LocalContext.current
         
         Column(
@@ -40,7 +41,7 @@ fun ListenTogetherSheet(
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (generatedSessionCode != null) {
+            if (activeRoomCode != null) {
                 Text(
                     "Jam Session Active!",
                     color = Color.White,
@@ -49,13 +50,13 @@ fun ListenTogetherSheet(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    "Your Invite Code:",
+                    "Session Invite Code:",
                     color = Color(0xFFAAAAAA),
                     fontSize = 16.sp
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    generatedSessionCode!!,
+                    activeRoomCode,
                     color = AccentRed,
                     fontSize = 42.sp,
                     fontWeight = FontWeight.Bold,
@@ -69,7 +70,7 @@ fun ListenTogetherSheet(
                     Button(
                         onClick = {
                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                            val clip = android.content.ClipData.newPlainText("Jam Code", generatedSessionCode!!)
+                            val clip = android.content.ClipData.newPlainText("Jam Code", activeRoomCode)
                             clipboard.setPrimaryClip(clip)
                             android.widget.Toast.makeText(context, "Code Copied!", android.widget.Toast.LENGTH_SHORT).show()
                         },
@@ -82,7 +83,7 @@ fun ListenTogetherSheet(
                         onClick = {
                             val intent = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, "Join my Rythmiq Jam Session! Enter code: ${generatedSessionCode!!}")
+                                putExtra(Intent.EXTRA_TEXT, "Join my Rythmiq Jam Session! Enter code: $activeRoomCode")
                             }
                             context.startActivity(Intent.createChooser(intent, "Share Jam Code"))
                         },
@@ -92,6 +93,19 @@ fun ListenTogetherSheet(
                         Text("Share", color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 }
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Button(
+                    onClick = {
+                        onEndSession()
+                        onDismiss()
+                    },
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF333333))
+                ) {
+                    Text("Leave Session", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+                
                 Spacer(modifier = Modifier.height(16.dp))
                 TextButton(onClick = onDismiss) {
                     Text("Close", color = Color.Gray)
@@ -116,7 +130,6 @@ fun ListenTogetherSheet(
                 Button(
                     onClick = {
                         val code = (100000..999999).random().toString()
-                        generatedSessionCode = code
                         onStartSession(code)
                     },
                     modifier = Modifier.fillMaxWidth().height(50.dp),

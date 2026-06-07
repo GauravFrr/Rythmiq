@@ -179,6 +179,19 @@ class SessionViewModel : ViewModel() {
         }
     }
 
+    fun leaveRoom() {
+        val room = _currentRoom.value ?: return
+        try {
+            val payload = JSONObject().apply {
+                put("roomCode", room)
+            }
+            mSocket?.emit("leave_room", payload) // Backend doesn't explicitly need this if it relies on disconnect, but good practice
+        } catch (e: Exception) {
+            Log.e("SessionViewModel", "Error leaving room", e)
+        }
+        _currentRoom.value = null
+    }
+
     override fun onCleared() {
         super.onCleared()
         mSocket?.disconnect()

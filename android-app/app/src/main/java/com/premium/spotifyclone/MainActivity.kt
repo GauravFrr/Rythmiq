@@ -513,7 +513,9 @@ class MainActivity : ComponentActivity() {
                                 scope.launch {
                                     snackbarHostState.showSnackbar("Joined Session: $code")
                                 }
-                            }
+                            },
+                            activeRoomCode = sessionViewModel.currentRoom.collectAsState().value,
+                            onEndSession = { sessionViewModel.leaveRoom() }
                         )
                     }
 
