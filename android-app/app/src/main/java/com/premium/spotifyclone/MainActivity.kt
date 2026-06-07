@@ -283,7 +283,7 @@ class MainActivity : ComponentActivity() {
 
             LaunchedEffect(isPlaying, isInitiator, isLiveSession) {
                 if (isPlaying && isInitiator && isLiveSession) {
-                    while (kotlinx.coroutines.isActive) {
+                    while (true) {
                         kotlinx.coroutines.delay(3000)
                         val pos = musicService?.player?.currentPosition ?: 0L
                         sessionViewModel.syncSeek(pos)
