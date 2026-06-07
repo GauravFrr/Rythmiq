@@ -217,6 +217,8 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            var isInitiator by remember { mutableStateOf(false) }
+
             val onPlayTracksRemote: (List<Track>) -> Unit = onPlayTracksRemote@{ tracks ->
                 val withAudio = tracks.filter { it.audioUrl != null }
                 if (withAudio.isEmpty()) return@onPlayTracksRemote
@@ -236,6 +238,7 @@ class MainActivity : ComponentActivity() {
             }
 
             val onPlayTracks: (List<Track>) -> Unit = onPlayTracks@{ tracks ->
+                isInitiator = true
                 val withAudio = tracks.filter { it.audioUrl != null }
                 if (withAudio.isEmpty()) return@onPlayTracks
                 
@@ -249,11 +252,13 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(Unit) {
                 launch {
                     sessionViewModel.syncSong.collect { track ->
+                        isInitiator = false
                         onPlayTracksRemote(listOf(track))
                     }
                 }
                 launch {
                     sessionViewModel.syncPlayPause.collect { (playing, timestamp) ->
+                        isInitiator = false
                         musicService?.setPlayPause(playing)
                         if (timestamp > 0) {
                             musicService?.seekToMs(timestamp)
@@ -262,12 +267,26 @@ class MainActivity : ComponentActivity() {
                 }
                 launch {
                     sessionViewModel.syncSeek.collect { positionMs ->
-                        musicService?.seekToMs(positionMs)
+                        isInitiator = false
+                        val current = musicService?.player?.currentPosition ?: 0L
+                        if (kotlin.math.abs(current - positionMs) > 1500) {
+                            musicService?.seekToMs(positionMs)
+                        }
                     }
                 }
                 launch {
                     sessionViewModel.syncQueue.collect { track ->
                         musicService?.addToQueue(track)
+                    }
+                }
+            }
+
+            LaunchedEffect(isPlaying, isInitiator, isLiveSession) {
+                if (isPlaying && isInitiator && isLiveSession) {
+                    while (kotlinx.coroutines.isActive) {
+                        kotlinx.coroutines.delay(3000)
+                        val pos = musicService?.player?.currentPosition ?: 0L
+                        sessionViewModel.syncSeek(pos)
                     }
                 }
             }
@@ -393,6 +412,7 @@ class MainActivity : ComponentActivity() {
                                     progress = progress,
                                     isLiked = isLiked,
                                     onTogglePlay = { 
+                                        isInitiator = true
                                         musicService?.togglePlayPause()
                                         if (isLiveSession) {
                                             sessionViewModel.syncPlayPause(!isPlaying, musicService?.player?.currentPosition ?: 0L)
@@ -433,6 +453,7 @@ class MainActivity : ComponentActivity() {
                                 shuffleEnabled = shuffleEnabled,
                                 repeatMode = repeatMode,
                                 onTogglePlay = { 
+                                    isInitiator = true
                                     musicService?.togglePlayPause()
                                     if (isLiveSession) {
                                         sessionViewModel.syncPlayPause(!isPlaying, musicService?.player?.currentPosition ?: 0L)
@@ -440,6 +461,7 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onCollapse = { isPlayerExpanded = false },
                                 onSeekToFraction = { f -> 
+                                    isInitiator = true
                                     musicService?.seekToFraction(f)
                                     if (isLiveSession) {
                                         val pos = ((musicService?.player?.duration?.coerceAtLeast(0L) ?: 0L) * f).toLong()
