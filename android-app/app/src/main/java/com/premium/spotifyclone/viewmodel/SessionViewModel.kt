@@ -54,6 +54,15 @@ class SessionViewModel : ViewModel() {
         mSocket?.on(Socket.EVENT_CONNECT) {
             _isConnected.value = true
             Log.d("SessionViewModel", "Connected to server")
+            
+            val room = _currentRoom.value
+            if (room != null) {
+                val payload = JSONObject().apply {
+                    put("roomCode", room)
+                    put("userId", "User")
+                }
+                mSocket?.emit("join_room", payload)
+            }
         }
         
         mSocket?.on(Socket.EVENT_DISCONNECT) {

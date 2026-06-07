@@ -150,7 +150,8 @@ class MainActivity : ComponentActivity() {
             var isListenTogetherSheetOpen by remember { mutableStateOf(false) }
 
             val sessionViewModel: com.premium.spotifyclone.viewmodel.SessionViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
-            val isLiveSession by sessionViewModel.isConnected.collectAsStateWithLifecycle()
+            val currentRoom by sessionViewModel.currentRoom.collectAsStateWithLifecycle()
+            val isLiveSession = currentRoom != null
             
             val navController = androidx.navigation.compose.rememberNavController()
             val activeTrack by activeTrackHold.collectAsState()
@@ -242,10 +243,6 @@ class MainActivity : ComponentActivity() {
                 val withAudio = tracks.filter { it.audioUrl != null }
                 if (withAudio.isEmpty()) return@onPlayTracks
                 
-                if (isLiveSession) {
-                    sessionViewModel.syncSong(withAudio.first())
-                }
-                
                 onPlayTracksRemote(tracks)
             }
 
@@ -278,6 +275,12 @@ class MainActivity : ComponentActivity() {
                     sessionViewModel.syncQueue.collect { track ->
                         musicService?.addToQueue(track)
                     }
+                }
+            }
+
+            LaunchedEffect(activeTrack) {
+                if (isInitiator && isLiveSession && activeTrack != null) {
+                    sessionViewModel.syncSong(activeTrack!!)
                 }
             }
 
@@ -419,8 +422,14 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     onExpand = { isPlayerExpanded = true },
-                                    onSkipNext = { musicService?.skipToNext() },
-                                    onSkipPrevious = { musicService?.skipToPrevious() },
+                                    onSkipNext = { 
+                                        isInitiator = true
+                                        musicService?.skipToNext() 
+                                    },
+                                    onSkipPrevious = { 
+                                        isInitiator = true
+                                        musicService?.skipToPrevious() 
+                                    },
                                     onSaveTrackClick = onSaveTrackClick,
                                     onAddToQueueClick = {
                                         scope.launch {
@@ -468,8 +477,14 @@ class MainActivity : ComponentActivity() {
                                         sessionViewModel.syncSeek(pos)
                                     }
                                 },
-                                onSkipNext = { musicService?.skipToNext() },
-                                onSkipPrevious = { musicService?.skipToPrevious() },
+                                onSkipNext = { 
+                                    isInitiator = true
+                                    musicService?.skipToNext() 
+                                },
+                                onSkipPrevious = { 
+                                    isInitiator = true
+                                    musicService?.skipToPrevious() 
+                                },
                                 onSaveTrackClick = onSaveTrackClick,
                                 onToggleShuffle = { musicService?.toggleShuffle() },
                                 onCycleRepeat = { musicService?.cycleRepeatMode() },
