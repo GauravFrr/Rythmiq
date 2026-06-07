@@ -276,6 +276,20 @@ class MainActivity : ComponentActivity() {
                         musicService?.addToQueue(track)
                     }
                 }
+                launch {
+                    sessionViewModel.userJoined.collect { userId ->
+                        // A new user joined! If we are the host/initiator, let's sync them up.
+                        if (isInitiator && isLiveSession) {
+                            activeTrack?.let { track ->
+                                kotlinx.coroutines.delay(500) // Give them a moment to initialize
+                                sessionViewModel.syncSong(track)
+                                kotlinx.coroutines.delay(500) // Give them time to buffer
+                                val currentPos = musicService?.player?.currentPosition ?: 0L
+                                sessionViewModel.syncPlayPause(isPlaying, currentPos)
+                            }
+                        }
+                    }
+                }
             }
 
             LaunchedEffect(activeTrack) {

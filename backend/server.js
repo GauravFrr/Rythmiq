@@ -78,6 +78,13 @@ io.on('connection', (socket) => {
         socket.to(roomCode).emit('sync_queue', { song });
     });
 
+    // Someone leaves
+    socket.on('leave_room', ({ roomCode }) => {
+        socket.leave(roomCode);
+        socket.to(roomCode).emit('user_left');
+        console.log(`[Socket] User left room ${roomCode}`);
+    });
+
     socket.on('disconnect', () => {
         // notify room someone left
     });

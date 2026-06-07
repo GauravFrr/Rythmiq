@@ -40,6 +40,9 @@ class SessionViewModel : ViewModel() {
     private val _syncQueue = MutableSharedFlow<Track>()
     val syncQueue: SharedFlow<Track> = _syncQueue
 
+    private val _userJoined = MutableSharedFlow<String>()
+    val userJoined: SharedFlow<String> = _userJoined
+
     init {
         try {
             mSocket = IO.socket(serverUrl)
@@ -75,10 +78,14 @@ class SessionViewModel : ViewModel() {
                 val data = args[0] as JSONObject
                 val userId = data.optString("userId")
                 Log.d("SessionViewModel", "User joined: $userId")
+                viewModelScope.launch {
+                    _userJoined.emit(userId)
+                }
             }
         }
 
         mSocket?.on("sync_play_pause") { args ->
+            if (_currentRoom.value == null) return@on
             if (args.isNotEmpty()) {
                 val data = args[0] as JSONObject
                 val isPlaying = data.optBoolean("isPlaying")
@@ -90,6 +97,7 @@ class SessionViewModel : ViewModel() {
         }
 
         mSocket?.on("sync_song") { args ->
+            if (_currentRoom.value == null) return@on
             if (args.isNotEmpty()) {
                 try {
                     val data = args[0] as JSONObject
@@ -105,6 +113,7 @@ class SessionViewModel : ViewModel() {
         }
 
         mSocket?.on("sync_seek") { args ->
+            if (_currentRoom.value == null) return@on
             if (args.isNotEmpty()) {
                 val data = args[0] as JSONObject
                 val position = data.optLong("position")
@@ -115,6 +124,7 @@ class SessionViewModel : ViewModel() {
         }
 
         mSocket?.on("sync_queue") { args ->
+            if (_currentRoom.value == null) return@on
             if (args.isNotEmpty()) {
                 try {
                     val data = args[0] as JSONObject
