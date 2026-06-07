@@ -2,24 +2,43 @@ package com.premium.spotifyclone.viewmodel
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.google.gson.Gson
+import com.premium.spotifyclone.data.models.Track
+import com.premium.spotifyclone.data.network.DevApiBaseUrl
 import io.socket.client.IO
 import io.socket.client.Socket
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 class SessionViewModel : ViewModel() {
     private var mSocket: Socket? = null
     
-    // Change this to your local IP for real device testing, e.g. "http://192.168.1.X:3000"
-    // Use http://10.0.2.2:3000 for Android emulator
-    private val serverUrl = "http://10.0.2.2:3000"
+    private val serverUrl = DevApiBaseUrl.resolve()
+    private val gson = Gson()
 
     private val _isConnected = MutableStateFlow(false)
     val isConnected: StateFlow<Boolean> = _isConnected
 
     private val _currentRoom = MutableStateFlow<String?>(null)
     val currentRoom: StateFlow<String?> = _currentRoom
+
+    // ── Incoming Sync Events ──────────────────────────────────────────────
+    private val _syncPlayPause = MutableSharedFlow<Pair<Boolean, Long>>() // isPlaying, timestamp
+    val syncPlayPause: SharedFlow<Pair<Boolean, Long>> = _syncPlayPause
+
+    private val _syncSong = MutableSharedFlow<Track>()
+    val syncSong: SharedFlow<Track> = _syncSong
+
+    private val _syncSeek = MutableSharedFlow<Long>()
+    val syncSeek: SharedFlow<Long> = _syncSeek
+
+    private val _syncQueue = MutableSharedFlow<Track>()
+    val syncQueue: SharedFlow<Track> = _syncQueue
 
     init {
         try {
@@ -49,7 +68,60 @@ class SessionViewModel : ViewModel() {
                 Log.d("SessionViewModel", "User joined: $userId")
             }
         }
+
+        mSocket?.on("sync_play_pause") { args ->
+            if (args.isNotEmpty()) {
+                val data = args[0] as JSONObject
+                val isPlaying = data.optBoolean("isPlaying")
+                val timestamp = data.optLong("timestamp")
+                viewModelScope.launch {
+                    _syncPlayPause.emit(Pair(isPlaying, timestamp))
+                }
+            }
+        }
+
+        mSocket?.on("sync_song") { args ->
+            if (args.isNotEmpty()) {
+                try {
+                    val data = args[0] as JSONObject
+                    val songJson = data.getJSONObject("song").toString()
+                    val track = gson.fromJson(songJson, Track::class.java)
+                    viewModelScope.launch {
+                        _syncSong.emit(track)
+                    }
+                } catch (e: Exception) {
+                    Log.e("SessionViewModel", "Failed to parse sync_song", e)
+                }
+            }
+        }
+
+        mSocket?.on("sync_seek") { args ->
+            if (args.isNotEmpty()) {
+                val data = args[0] as JSONObject
+                val position = data.optLong("position")
+                viewModelScope.launch {
+                    _syncSeek.emit(position)
+                }
+            }
+        }
+
+        mSocket?.on("sync_queue") { args ->
+            if (args.isNotEmpty()) {
+                try {
+                    val data = args[0] as JSONObject
+                    val songJson = data.getJSONObject("song").toString()
+                    val track = gson.fromJson(songJson, Track::class.java)
+                    viewModelScope.launch {
+                        _syncQueue.emit(track)
+                    }
+                } catch (e: Exception) {
+                    Log.e("SessionViewModel", "Failed to parse sync_queue", e)
+                }
+            }
+        }
     }
+
+    // ── Outgoing Actions ──────────────────────────────────────────────────
 
     fun createOrJoinRoom(roomCode: String, userId: String) {
         _currentRoom.value = roomCode
@@ -77,6 +149,34 @@ class SessionViewModel : ViewModel() {
             put("position", position)
         }
         mSocket?.emit("seek", payload)
+    }
+
+    fun syncSong(track: Track) {
+        val room = _currentRoom.value ?: return
+        try {
+            val trackJson = JSONObject(gson.toJson(track))
+            val payload = JSONObject().apply {
+                put("roomCode", room)
+                put("song", trackJson)
+            }
+            mSocket?.emit("change_song", payload)
+        } catch (e: Exception) {
+            Log.e("SessionViewModel", "Failed to serialize track for sync", e)
+        }
+    }
+
+    fun syncQueue(track: Track) {
+        val room = _currentRoom.value ?: return
+        try {
+            val trackJson = JSONObject(gson.toJson(track))
+            val payload = JSONObject().apply {
+                put("roomCode", room)
+                put("song", trackJson)
+            }
+            mSocket?.emit("add_to_queue", payload)
+        } catch (e: Exception) {
+            Log.e("SessionViewModel", "Failed to serialize track for queue sync", e)
+        }
     }
 
     override fun onCleared() {

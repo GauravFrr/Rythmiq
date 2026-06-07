@@ -152,6 +152,11 @@ class MusicPlayerService : LifecycleService() {
         if (effectiveUiPlaying()) player.pause() else player.play()
     }
 
+    fun setPlayPause(isPlaying: Boolean) {
+        if (!::player.isInitialized) return
+        if (isPlaying) player.play() else player.pause()
+    }
+
     fun stopAndClear() {
         if (!::player.isInitialized) return
         player.pause()
@@ -192,6 +197,15 @@ class MusicPlayerService : LifecycleService() {
         if (dur <= 0L) return
         val pos = (dur * fraction.toDouble()).toLong().coerceIn(0L, dur)
         player.seekTo(pos)
+        if (player.playbackState == Player.STATE_IDLE || player.playbackState == Player.STATE_ENDED) {
+            player.prepare()
+            player.play()
+        }
+    }
+
+    fun seekToMs(ms: Long) {
+        if (!::player.isInitialized) return
+        player.seekTo(ms)
         if (player.playbackState == Player.STATE_IDLE || player.playbackState == Player.STATE_ENDED) {
             player.prepare()
             player.play()

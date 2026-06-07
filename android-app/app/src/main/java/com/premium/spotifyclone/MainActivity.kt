@@ -217,9 +217,9 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            val onPlayTracks: (List<Track>) -> Unit = onPlayTracks@{ tracks ->
+            val onPlayTracksRemote: (List<Track>) -> Unit = onPlayTracksRemote@{ tracks ->
                 val withAudio = tracks.filter { it.audioUrl != null }
-                if (withAudio.isEmpty()) return@onPlayTracks
+                if (withAudio.isEmpty()) return@onPlayTracksRemote
                 activeTrackHold.value = withAudio.first()
                 LastPlayedPrefs.save(this@MainActivity, withAudio.first())
                 val intent = Intent(this@MainActivity, MusicPlayerService::class.java).apply {
@@ -233,6 +233,43 @@ class MainActivity : ComponentActivity() {
                 }
                 serviceStarted = true
                 bindToService()
+            }
+
+            val onPlayTracks: (List<Track>) -> Unit = onPlayTracks@{ tracks ->
+                val withAudio = tracks.filter { it.audioUrl != null }
+                if (withAudio.isEmpty()) return@onPlayTracks
+                
+                if (isLiveSession) {
+                    sessionViewModel.syncSong(withAudio.first())
+                }
+                
+                onPlayTracksRemote(tracks)
+            }
+
+            LaunchedEffect(Unit) {
+                launch {
+                    sessionViewModel.syncSong.collect { track ->
+                        onPlayTracksRemote(listOf(track))
+                    }
+                }
+                launch {
+                    sessionViewModel.syncPlayPause.collect { (playing, timestamp) ->
+                        musicService?.setPlayPause(playing)
+                        if (timestamp > 0) {
+                            musicService?.seekToMs(timestamp)
+                        }
+                    }
+                }
+                launch {
+                    sessionViewModel.syncSeek.collect { positionMs ->
+                        musicService?.seekToMs(positionMs)
+                    }
+                }
+                launch {
+                    sessionViewModel.syncQueue.collect { track ->
+                        musicService?.addToQueue(track)
+                    }
+                }
             }
 
             SpotifyCloneTheme {
@@ -334,6 +371,9 @@ class MainActivity : ComponentActivity() {
                                 onPlayTracks = onPlayTracks,
                                 onAddToQueue = { track ->
                                     musicService?.addToQueue(track)
+                                    if (isLiveSession) {
+                                        sessionViewModel.syncQueue(track)
+                                    }
                                     scope.launch {
                                         snackbarHostState.showSnackbar(
                                             message = "Added to queue",
@@ -352,7 +392,12 @@ class MainActivity : ComponentActivity() {
                                     isPlaying = isPlaying,
                                     progress = progress,
                                     isLiked = isLiked,
-                                    onTogglePlay = { musicService?.togglePlayPause() },
+                                    onTogglePlay = { 
+                                        musicService?.togglePlayPause()
+                                        if (isLiveSession) {
+                                            sessionViewModel.syncPlayPause(!isPlaying, musicService?.player?.currentPosition ?: 0L)
+                                        }
+                                    },
                                     onExpand = { isPlayerExpanded = true },
                                     onSkipNext = { musicService?.skipToNext() },
                                     onSkipPrevious = { musicService?.skipToPrevious() },
@@ -387,9 +432,20 @@ class MainActivity : ComponentActivity() {
                                 isLiked = isLiked,
                                 shuffleEnabled = shuffleEnabled,
                                 repeatMode = repeatMode,
-                                onTogglePlay = { musicService?.togglePlayPause() },
+                                onTogglePlay = { 
+                                    musicService?.togglePlayPause()
+                                    if (isLiveSession) {
+                                        sessionViewModel.syncPlayPause(!isPlaying, musicService?.player?.currentPosition ?: 0L)
+                                    }
+                                },
                                 onCollapse = { isPlayerExpanded = false },
-                                onSeekToFraction = { f -> musicService?.seekToFraction(f) },
+                                onSeekToFraction = { f -> 
+                                    musicService?.seekToFraction(f)
+                                    if (isLiveSession) {
+                                        val pos = ((musicService?.player?.duration?.coerceAtLeast(0L) ?: 0L) * f).toLong()
+                                        sessionViewModel.syncSeek(pos)
+                                    }
+                                },
                                 onSkipNext = { musicService?.skipToNext() },
                                 onSkipPrevious = { musicService?.skipToPrevious() },
                                 onSaveTrackClick = onSaveTrackClick,
