@@ -1,6 +1,8 @@
 package com.premium.spotifyclone.ui.components
 
+import android.content.Context
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -12,15 +14,12 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,6 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
@@ -42,6 +42,8 @@ import coil.compose.AsyncImage
 import com.premium.spotifyclone.data.models.Track
 import com.premium.spotifyclone.ui.gestures.trackSwipeGesture
 import com.premium.spotifyclone.ui.theme.*
+import com.premium.spotifyclone.ui.utils.extractDominantColor
+import kotlinx.coroutines.isActive
 
 @Composable
 fun BottomMiniPlayer(
@@ -61,6 +63,7 @@ fun BottomMiniPlayer(
 ) {
     if (track == null) return
 
+    val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val density = LocalDensity.current
     var dragDuring by remember { mutableFloatStateOf(0f) }
@@ -69,18 +72,54 @@ fun BottomMiniPlayer(
     val slideTween = remember { tween<IntOffset>(280, easing = FastOutSlowInEasing) }
     val fadeTween  = remember { tween<Float>(220, easing = FastOutSlowInEasing) }
 
+    // Dynamic Color Palette
+    var dominantColor by remember { mutableStateOf(Color(0xFF181818)) }
+    val animatedBgColor by animateColorAsState(
+        targetValue = dominantColor,
+        animationSpec = tween(durationMillis = 800),
+        label = "miniPlayerBgColor"
+    )
+
+    LaunchedEffect(track.coverUrl) {
+        val color = extractDominantColor(context, track.coverUrl)
+        if (color != null) {
+            dominantColor = color
+        } else {
+            dominantColor = Color(0xFF181818)
+        }
+    }
+
+    // Bluetooth Headset Detection
+    var isBluetoothHeadsetConnected by remember { mutableStateOf(false) }
+    LaunchedEffect(track.id) {
+        while (isActive) {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+            var isBt = false
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                val devices = audioManager.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS)
+                isBt = devices.any { 
+                    it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || 
+                    it.type == android.media.AudioDeviceInfo.TYPE_BLE_HEADSET ||
+                    it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                isBt = audioManager.isBluetoothA2dpOn
+            }
+            isBluetoothHeadsetConnected = isBt
+            kotlinx.coroutines.delay(3000)
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 6.dp, vertical = 6.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFF181818).copy(alpha = 0.95f)) // Perfect dark translucent
+            .padding(horizontal = 8.dp, vertical = 6.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(animatedBgColor)
             .clickable { onExpand() }
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            // ── Row 1: Art + Title/Artist + Action Icons ───────────────────────────────
+        Column(modifier = Modifier.fillMaxWidth()) {
             AnimatedContent(
                 targetState = track.id,
                 transitionSpec = {
@@ -119,15 +158,15 @@ fun BottomMiniPlayer(
                                 onSwipeDirection   = { swipeDirection = it }
                             )
                         }
-                        .padding(start = 12.dp, top = 12.dp, end = 8.dp, bottom = 2.dp),
+                        .padding(start = 8.dp, top = 8.dp, end = 8.dp, bottom = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Album art
+                    // Album Art
                     AsyncImage(
                         model = track.coverUrl,
                         contentDescription = "Cover",
                         modifier = Modifier
-                            .size(52.dp) // Slightly larger to match reference
+                            .size(44.dp)
                             .clip(RoundedCornerShape(6.dp))
                             .background(AppBlack),
                         contentScale = ContentScale.Crop
@@ -135,224 +174,117 @@ fun BottomMiniPlayer(
 
                     Spacer(modifier = Modifier.width(12.dp))
 
-                    // Title + Artist
+                    // Title & Artist
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = track.title,
                                 modifier = Modifier.weight(1f, fill = false),
-                                color = TextPrimary,
-                                fontSize = 15.sp,
+                                color = Color.White,
+                                fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
-                            if (track.isRecommended) {
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(Color(0xFF282828))
-                                        .padding(horizontal = 4.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = "Recommended",
-                                        color = AccentRed, // Using accent color for visibility
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
+                            if (isBluetoothHeadsetConnected) {
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = Icons.Default.Headphones,
+                                    contentDescription = "Bluetooth Connected",
+                                    tint = Color.Red,
+                                    modifier = Modifier.size(14.dp)
+                                )
                             }
                         }
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = track.artist,
-                            color = TextSecondary,
-                            fontSize = 13.sp,
+                            color = Color(0xFFB3B3B3),
+                            fontSize = 12.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
 
-                    // Top Right Icons (Heart, Mic, Add to Queue, View Queue)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // Action Icons (Like, Add to Queue, Play/Pause)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically, 
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
                         IconButton(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onSaveTrackClick()
                             },
                             enabled = track.audioUrl != null,
-                            modifier = Modifier.size(32.dp)
+                            modifier = Modifier.size(36.dp)
                         ) {
                             Icon(
                                 imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                                 contentDescription = "Like",
-                                tint = if (isLiked) AccentRed else IconDefault,
-                                modifier = Modifier.size(20.dp)
+                                tint = if (isLiked) AccentRed else Color.White,
+                                modifier = Modifier.size(22.dp)
                             )
                         }
-                        IconButton(onClick = {}, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Default.Mic, contentDescription = "Lyrics", tint = IconDefault, modifier = Modifier.size(20.dp))
+                        
+                        IconButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onAddToQueueClick()
+                            }, 
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.PlaylistAdd, 
+                                contentDescription = "Add to Queue", 
+                                tint = Color.White, 
+                                modifier = Modifier.size(24.dp)
+                            )
                         }
-                        IconButton(onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onAddToQueueClick()
-                        }, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = "Add to Queue", tint = IconDefault, modifier = Modifier.size(22.dp))
-                        }
-                        IconButton(onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onOpenQueue()
-                        }, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Default.FormatListBulleted, contentDescription = "Queue", tint = IconDefault, modifier = Modifier.size(20.dp))
-                        }
-                        if (isLiveSession) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.Red)
+                        
+                        IconButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onTogglePlay()
+                            }, 
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                contentDescription = if (isPlaying) "Pause" else "Play",
+                                tint = Color.White,
+                                modifier = Modifier.size(28.dp)
                             )
                         }
                     }
                 }
             }
 
-            // ── Row 2: Progress Bar with Timers ────────────────────────────────────────
-            Row(
+            // Syncing Progress Bar (Absolute Bottom Edge)
+            Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .height(2.dp)
             ) {
-                val totalMs = track.durationMs.coerceAtLeast(1L)
-                val currentSec = (progress * (totalMs / 1000f)).toInt().coerceAtLeast(0)
-                val totalSec   = (totalMs / 1000).toInt().coerceAtLeast(0)
-
-                Text("%d:%02d".format(currentSec / 60, currentSec % 60), color = TextSecondary, fontSize = 11.sp)
-                Spacer(modifier = Modifier.width(8.dp))
-                Canvas(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(12.dp)
-                        .clickable { onExpand() }
-                ) {
-                    val trackHeight = 1.dp.toPx()
-                    val centerY = size.height / 2f
-                    
-                    // Background track (dark grey)
+                val trackHeight = 2.dp.toPx()
+                val progressWidth = size.width * progress.coerceIn(0f, 1f)
+                
+                // Background track
+                drawLine(
+                    color = Color.White.copy(alpha = 0.2f),
+                    start = androidx.compose.ui.geometry.Offset(0f, size.height / 2f),
+                    end = androidx.compose.ui.geometry.Offset(size.width, size.height / 2f),
+                    strokeWidth = trackHeight
+                )
+                
+                // Progress track
+                if (progressWidth > 0) {
                     drawLine(
-                        color = Color(0xFF333333),
-                        start = androidx.compose.ui.geometry.Offset(0f, centerY),
-                        end = androidx.compose.ui.geometry.Offset(size.width, centerY),
+                        color = Color.White,
+                        start = androidx.compose.ui.geometry.Offset(0f, size.height / 2f),
+                        end = androidx.compose.ui.geometry.Offset(progressWidth, size.height / 2f),
                         strokeWidth = trackHeight
                     )
-                    
-                    // Progress track (light grey/white, not red!)
-                    val progressWidth = size.width * progress.coerceIn(0f, 1f)
-                    if (progressWidth > 0) {
-                        drawLine(
-                            color = Color(0xFFCCCCCC),
-                            start = androidx.compose.ui.geometry.Offset(0f, centerY),
-                            end = androidx.compose.ui.geometry.Offset(progressWidth, centerY),
-                            strokeWidth = trackHeight
-                        )
-                        // Square dot at the end to match screenshot precisely
-                        val thumbSize = 5.dp.toPx()
-                        drawRect(
-                            color = Color(0xFFCCCCCC),
-                            topLeft = androidx.compose.ui.geometry.Offset(
-                                x = progressWidth - (thumbSize / 2f),
-                                y = centerY - (thumbSize / 2f)
-                            ),
-                            size = androidx.compose.ui.geometry.Size(thumbSize, thumbSize)
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("%d:%02d".format(totalSec / 60, totalSec % 60), color = TextSecondary, fontSize = 11.sp)
-            }
-
-            // ── Row 3: Playback controls ────────────────────────────────────────
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 4.dp)
-                    .padding(bottom = 8.dp)
-            ) {
-                val sidePadding = 34.dp // Padding away from the center Play button
-                
-                // Left side: Shuffle, Share, Previous
-                Row(
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .fillMaxWidth(0.5f)
-                        .padding(end = sidePadding),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = {}, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.Shuffle, contentDescription = "Shuffle", tint = IconDefault, modifier = Modifier.size(20.dp))
-                    }
-                    IconButton(onClick = {}, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.Share, contentDescription = "Share", tint = IconDefault, modifier = Modifier.size(20.dp))
-                    }
-                    IconButton(
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onSkipPrevious()
-                        },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(Icons.Default.SkipPrevious, contentDescription = "Previous", tint = TextPrimary, modifier = Modifier.size(24.dp))
-                    }
-                }
-
-                // Center: Play Button (Guaranteed absolute center)
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .size(54.dp)
-                        .clip(CircleShape)
-                        .background(AccentRed)
-                        .clickable {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onTogglePlay()
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = if (isPlaying) "Pause" else "Play",
-                        tint = Color.White,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-
-                // Right side: Next, Repeat, Cast
-                Row(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .fillMaxWidth(0.5f)
-                        .padding(start = sidePadding),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onSkipNext()
-                        },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(Icons.Default.SkipNext, contentDescription = "Next", tint = TextPrimary, modifier = Modifier.size(24.dp))
-                    }
-                    IconButton(onClick = {}, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.Repeat, contentDescription = "Repeat", tint = IconDefault, modifier = Modifier.size(20.dp))
-                    }
-                    IconButton(onClick = onCastClick, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.Cast, contentDescription = "Listen Together", tint = if (isLiveSession) Color.Red else IconDefault, modifier = Modifier.size(20.dp))
-                    }
                 }
             }
         }

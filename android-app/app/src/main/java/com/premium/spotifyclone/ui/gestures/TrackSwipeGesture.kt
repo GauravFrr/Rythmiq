@@ -46,11 +46,11 @@ suspend fun PointerInputScope.trackSwipeGesture(
                     }
                     ax > ay && totalX < -skipThresholdPx -> {
                         onSwipeDirection(1)
-                        onSkipNext()
+                        onSkipPrevious()
                     }
                     ax > ay && totalX > skipThresholdPx -> {
                         onSwipeDirection(-1)
-                        onSkipPrevious()
+                        onSkipNext()
                     }
                 }
                 break
