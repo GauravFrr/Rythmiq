@@ -1,6 +1,9 @@
 package com.premium.spotifyclone.ui.components
 
 import android.content.Context
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -120,6 +123,22 @@ fun BottomMiniPlayer(
             .clickable { onExpand() }
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
+            
+            // Animated Recommended Banner
+            AnimatedVisibility(
+                visible = track.isRecommended,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Text(
+                    text = "Recommended for you",
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(start = 12.dp, top = 10.dp, bottom = 2.dp)
+                )
+            }
+
             AnimatedContent(
                 targetState = track.id,
                 transitionSpec = {
@@ -197,13 +216,24 @@ fun BottomMiniPlayer(
                             }
                         }
                         Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = track.artist,
-                            color = Color(0xFFB3B3B3),
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (track.isRecommended) {
+                                Icon(
+                                    imageVector = Icons.Default.AutoAwesome,
+                                    contentDescription = "Recommended",
+                                    tint = Color(0xFF1DB954), // Spotify Green
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            Text(
+                                text = track.artist,
+                                color = Color(0xFFB3B3B3),
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
 
                     // Action Icons (Like, Add to Queue, Play/Pause)
