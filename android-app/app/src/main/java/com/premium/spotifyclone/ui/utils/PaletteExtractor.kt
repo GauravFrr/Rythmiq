@@ -27,11 +27,15 @@ suspend fun extractDominantColor(context: Context, imageUrl: String): Color? {
                 
                 bitmap?.let { b ->
                     val palette = Palette.from(b).generate()
-                    // Get dominant or muted color to act as a dark background
-                    val colorInt = palette.getDarkVibrantColor(
-                        palette.getDominantColor(android.graphics.Color.DKGRAY)
+                    // Prefer Dark Muted -> Dark Vibrant -> Dominant
+                    val colorInt = palette.getDarkMutedColor(
+                        palette.getDarkVibrantColor(
+                            palette.getDominantColor(android.graphics.Color.DKGRAY)
+                        )
                     )
-                    Color(colorInt)
+                    // Blend heavily with black for a rich, dark premium aesthetic
+                    val darkenedColor = androidx.core.graphics.ColorUtils.blendARGB(colorInt, android.graphics.Color.BLACK, 0.65f)
+                    Color(darkenedColor)
                 }
             } else {
                 null
