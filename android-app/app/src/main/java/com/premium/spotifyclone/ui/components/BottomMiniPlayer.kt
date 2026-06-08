@@ -221,7 +221,7 @@ fun BottomMiniPlayer(
                                 Icon(
                                     imageVector = Icons.Default.AutoAwesome,
                                     contentDescription = "Recommended",
-                                    tint = Color(0xFF1DB954), // Spotify Green
+                                    tint = Color.Red,
                                     modifier = Modifier.size(12.dp)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
