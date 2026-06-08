@@ -130,13 +130,19 @@ fun BottomMiniPlayer(
                 enter = expandVertically() + fadeIn(),
                 exit = shrinkVertically() + fadeOut()
             ) {
-                Text(
-                    text = "Recommended for you",
-                    color = Color.White,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(start = 12.dp, top = 10.dp, bottom = 2.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.Black.copy(alpha = 0.25f))
+                        .padding(start = 12.dp, top = 8.dp, bottom = 6.dp)
+                ) {
+                    Text(
+                        text = "Recommended for you",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
 
             AnimatedContent(
